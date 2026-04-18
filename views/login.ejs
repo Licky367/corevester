@@ -1,0 +1,13 @@
+<%- include('partials/authLayout', {
+  title: 'Login',
+  body: `
+    <form method="POST" action="/api/auth/login">
+      <input type="email" name="email" placeholder="Email" required />
+      <input type="password" name="password" placeholder="Password" required />
+      <button type="submit">Login</button>
+    </form>
+
+    <a href="/forgot-password">Forgot Password?</a>
+    <a href="/signup">Create Account</a>
+  `
+}) %>
