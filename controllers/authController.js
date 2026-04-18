@@ -5,10 +5,11 @@ exports.signup = async (req, res) => {
   try {
     await authService.signup(req.body);
 
-    // after signup → go to login
+    req.flash("success", "Account created successfully. Please login.");
     res.redirect("/login");
   } catch (err) {
-    res.status(400).send(err.message);
+    req.flash("error", err.message);
+    res.redirect("/signup");
   }
 };
 
@@ -21,18 +22,19 @@ exports.login = async (req, res) => {
     // store token in cookie
     res.cookie("token", token, {
       httpOnly: true,
-      secure: false, // set true in production (HTTPS)
+      secure: false, // true in production (HTTPS)
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
-    // 🔥 ROLE-BASED REDIRECT
+    // ROLE-BASED REDIRECT
     if (user.role === "admin") {
       return res.redirect("/admin");
-    } else {
-      return res.redirect("/client");
     }
+    return res.redirect("/client");
 
   } catch (err) {
-    res.status(401).send("Invalid credentials");
+    req.flash("error", "Invalid email or password");
+    res.redirect("/login");
   }
 };
 
@@ -41,9 +43,11 @@ exports.forgotPassword = async (req, res) => {
   try {
     await authService.forgotPassword(req.body.email);
 
+    req.flash("success", "Password reset link sent to your email");
     res.redirect("/login");
   } catch (err) {
-    res.status(404).send(err.message);
+    req.flash("error", err.message);
+    res.redirect("/forgot-password");
   }
 };
 
@@ -55,14 +59,18 @@ exports.resetPassword = async (req, res) => {
       req.body.password
     );
 
+    req.flash("success", "Password reset successful. You can now login.");
     res.redirect("/login");
   } catch (err) {
-    res.status(400).send(err.message);
+    req.flash("error", err.message);
+    res.redirect("back");
   }
 };
 
 // LOGOUT
 exports.logout = async (req, res) => {
   res.clearCookie("token");
+
+  req.flash("success", "Logged out successfully");
   res.redirect("/login");
 };
