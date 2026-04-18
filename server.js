@@ -4,6 +4,8 @@ const mongoose = require("mongoose");
 const path = require("path");
 const cookieParser = require("cookie-parser");
 const jwt = require("jsonwebtoken");
+const session = require("express-session");
+const flash = require("connect-flash");
 
 const authRoutes = require("./routes/auth");
 
@@ -14,6 +16,24 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
+// ===== SESSION + FLASH =====
+app.use(
+  session({
+    secret: "secret123",
+    resave: false,
+    saveUninitialized: false,
+  })
+);
+
+app.use(flash());
+
+// Make flash available in all views
+app.use((req, res, next) => {
+  res.locals.success = req.flash("success");
+  res.locals.error = req.flash("error");
+  next();
+});
+
 // ===== VIEW ENGINE =====
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
@@ -21,7 +41,7 @@ app.set("views", path.join(__dirname, "views"));
 // ===== STATIC FILES =====
 app.use(express.static(path.join(__dirname, "public")));
 
-// ===== SIMPLE AUTH MIDDLEWARE =====
+// ===== AUTH MIDDLEWARE =====
 const protect = (req, res, next) => {
   const token = req.cookies.token;
 
@@ -36,9 +56,26 @@ const protect = (req, res, next) => {
   }
 };
 
+// Prevent logged-in users from seeing login/signup again
+const redirectIfLoggedIn = (req, res, next) => {
+  const token = req.cookies.token;
+
+  if (!token) return next();
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    if (decoded.role === "admin") return res.redirect("/admin");
+    return res.redirect("/client");
+  } catch {
+    return next();
+  }
+};
+
 const authorize = (role) => {
   return (req, res, next) => {
     if (req.user.role !== role) {
+      req.flash("error", "Unauthorized access");
       return res.redirect("/login");
     }
     next();
@@ -47,27 +84,36 @@ const authorize = (role) => {
 
 // ===== ROUTES =====
 
-// API routes
+// API
 app.use("/api/auth", authRoutes);
 
-// View routes
-app.get("/login", (req, res) => res.render("login"));
-app.get("/signup", (req, res) => res.render("signup"));
-app.get("/forgot-password", (req, res) => res.render("forgot-password"));
+// AUTH VIEWS
+app.get("/login", redirectIfLoggedIn, (req, res) =>
+  res.render("login")
+);
+
+app.get("/signup", redirectIfLoggedIn, (req, res) =>
+  res.render("signup")
+);
+
+app.get("/forgot-password", (req, res) =>
+  res.render("forgot-password")
+);
+
 app.get("/reset-password/:token", (req, res) =>
   res.render("reset-password", { token: req.params.token })
 );
 
-// 🔐 PROTECTED DASHBOARDS
-app.get("/client", protect, authorize("client"), (req, res) => {
-  res.render("client");
-});
+// DASHBOARDS
+app.get("/client", protect, authorize("client"), (req, res) =>
+  res.render("client")
+);
 
-app.get("/admin", protect, authorize("admin"), (req, res) => {
-  res.render("admin");
-});
+app.get("/admin", protect, authorize("admin"), (req, res) =>
+  res.render("admin")
+);
 
-// Default route
+// DEFAULT
 app.get("/", (req, res) => res.redirect("/login"));
 
 // ===== DATABASE =====
