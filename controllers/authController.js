@@ -1,38 +1,53 @@
 const authService = require("../services/authService");
 
+// SIGNUP
 exports.signup = async (req, res) => {
   try {
-    const user = await authService.signup(req.body);
-    res.status(201).json({ success: true, user });
+    await authService.signup(req.body);
+
+    // after signup → go to login
+    res.redirect("/login");
   } catch (err) {
-    res.status(400).json({ success: false, message: err.message });
+    res.status(400).send(err.message);
   }
 };
 
+// LOGIN
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
-    const result = await authService.login(email, password);
+    const { user, token } = await authService.login(email, password);
 
-    res.status(200).json({ success: true, ...result });
+    // store token in cookie
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: false, // set true in production (HTTPS)
+    });
+
+    // 🔥 ROLE-BASED REDIRECT
+    if (user.role === "admin") {
+      return res.redirect("/admin");
+    } else {
+      return res.redirect("/client");
+    }
+
   } catch (err) {
-    res.status(401).json({ success: false, message: err.message });
+    res.status(401).send("Invalid credentials");
   }
 };
 
+// FORGOT PASSWORD
 exports.forgotPassword = async (req, res) => {
   try {
     await authService.forgotPassword(req.body.email);
 
-    res.status(200).json({
-      success: true,
-      message: "Password reset email sent",
-    });
+    res.redirect("/login");
   } catch (err) {
-    res.status(404).json({ success: false, message: err.message });
+    res.status(404).send(err.message);
   }
 };
 
+// RESET PASSWORD
 exports.resetPassword = async (req, res) => {
   try {
     await authService.resetPassword(
@@ -40,15 +55,14 @@ exports.resetPassword = async (req, res) => {
       req.body.password
     );
 
-    res.status(200).json({
-      success: true,
-      message: "Password reset successful",
-    });
+    res.redirect("/login");
   } catch (err) {
-    res.status(400).json({ success: false, message: err.message });
+    res.status(400).send(err.message);
   }
 };
 
+// LOGOUT
 exports.logout = async (req, res) => {
-  res.status(200).json({ success: true, message: "Logged out" });
+  res.clearCookie("token");
+  res.redirect("/login");
 };
