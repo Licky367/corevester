@@ -8,6 +8,7 @@ const session = require("express-session");
 const flash = require("connect-flash");
 
 const authRoutes = require("./routes/auth");
+const profileRoutes = require("./routes/profile"); // 👈 ADDED
 
 const app = express();
 
@@ -27,7 +28,7 @@ app.use(
 
 app.use(flash());
 
-// Make flash available in all views
+// Flash globals
 app.use((req, res, next) => {
   res.locals.success = req.flash("success");
   res.locals.error = req.flash("error");
@@ -51,12 +52,11 @@ const protect = (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
     next();
-  } catch (err) {
+  } catch {
     return res.redirect("/login");
   }
 };
 
-// Prevent logged-in users from seeing login/signup again
 const redirectIfLoggedIn = (req, res, next) => {
   const token = req.cookies.token;
 
@@ -86,6 +86,9 @@ const authorize = (role) => {
 
 // API
 app.use("/api/auth", authRoutes);
+
+// 👤 PROFILE ROUTES (PROTECTED)
+app.use("/profile", protect, profileRoutes);
 
 // AUTH VIEWS
 app.get("/login", redirectIfLoggedIn, (req, res) =>
